@@ -158,49 +158,105 @@ public final class NativeZipEngine: Sendable {
             throw NSError(domain: "NativeZipEngine", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to read zip archive file."])
         }
 
-        var offset = 0
-        let total_count = data.count
+        let standardized_dest = URL(fileURLWithPath: destination_directory).standardizedFileURL.path
+        try FileManager.default.createDirectory(atPath: standardized_dest, withIntermediateDirectories: true, attributes: nil)
 
-        while offset + 30 <= total_count {
-            let sig = data.subdata(in: offset..<offset+4).withUnsafeBytes { $0.load(as: UInt32.self) }
+        if let cd_entries = parse_central_directory(data: data) {
+            for entry in cd_entries {
+                let sanitized = entry.name.replacingOccurrences(of: "\\", with: "/")
+                guard !sanitized.contains("..") else { continue }
+                let target_path = (standardized_dest as NSString).appendingPathComponent(sanitized)
+                let check_standardized = URL(fileURLWithPath: target_path).standardizedFileURL.path
+                guard check_standardized.hasPrefix(standardized_dest) else { continue }
+
+                if entry.is_directory || sanitized.hasSuffix("/") {
+                    try? FileManager.default.createDirectory(atPath: target_path, withIntermediateDirectories: true, attributes: nil)
+                    continue
+                }
+
+                let parent = (target_path as NSString).deletingLastPathComponent
+                try? FileManager.default.createDirectory(atPath: parent, withIntermediateDirectories: true, attributes: nil)
+
+                let loc_offset = Int(entry.local_header_offset)
+                guard loc_offset + 30 <= data.count else { continue }
+
+                let loc_sig = read_u32(data: data, offset: loc_offset)
+                guard loc_sig == 0x04034b50 else { continue }
+
+                let loc_name_len = Int(read_u16(data: data, offset: loc_offset + 26))
+                let loc_extra_len = Int(read_u16(data: data, offset: loc_offset + 28))
+                let payload_start = loc_offset + 30 + loc_name_len + loc_extra_len
+                let payload_end = payload_start + Int(entry.comp_size)
+                guard payload_end <= data.count else { continue }
+
+                let payload = data.subdata(in: payload_start..<payload_end)
+                let out_data: Data?
+
+                if entry.compression_method == 8 {
+                    out_data = inflate_data(payload, uncompressed_size: Int(entry.uncomp_size))
+                } else if entry.compression_method == 0 {
+                    out_data = payload
+                } else {
+                    out_data = inflate_data(payload, uncompressed_size: Int(entry.uncomp_size)) ?? payload
+                }
+
+                if let valid_data = out_data {
+                    try? valid_data.write(to: URL(fileURLWithPath: target_path), options: .atomic)
+                }
+            }
+            return
+        }
+
+        try extract_zip_sequential_fallback(data: data, destination_directory: standardized_dest)
+    }
+
+    private static func extract_zip_sequential_fallback(data: Data, destination_directory: String) throws {
+        var offset = 0
+        let total = data.count
+
+        while offset + 30 <= total {
+            let sig = read_u32(data: data, offset: offset)
             guard sig == 0x04034b50 else { break }
 
-            let comp_method = data.subdata(in: offset+8..<offset+10).withUnsafeBytes { $0.load(as: UInt16.self) }
-            let comp_size = Int(data.subdata(in: offset+18..<offset+22).withUnsafeBytes { $0.load(as: UInt32.self) })
-            let uncomp_size = Int(data.subdata(in: offset+22..<offset+26).withUnsafeBytes { $0.load(as: UInt32.self) })
-            let name_len = Int(data.subdata(in: offset+26..<offset+28).withUnsafeBytes { $0.load(as: UInt16.self) })
-            let extra_len = Int(data.subdata(in: offset+28..<offset+30).withUnsafeBytes { $0.load(as: UInt16.self) })
+            let comp_method = read_u16(data: data, offset: offset + 8)
+            let comp_size = Int(read_u32(data: data, offset: offset + 18))
+            let uncomp_size = Int(read_u32(data: data, offset: offset + 22))
+            let name_len = Int(read_u16(data: data, offset: offset + 26))
+            let extra_len = Int(read_u16(data: data, offset: offset + 28))
 
             let name_start = offset + 30
             let name_end = name_start + name_len
-            guard name_end <= total_count else { break }
+            guard name_end <= total else { break }
 
             let name_bytes = data.subdata(in: name_start..<name_end)
-            let file_name = String(data: name_bytes, encoding: .utf8) ?? ""
+            let file_name = (String(data: name_bytes, encoding: .utf8) ?? "").replacingOccurrences(of: "\\", with: "/")
 
             let data_start = name_end + extra_len
             let data_end = data_start + comp_size
-            guard data_end <= total_count else { break }
+            guard data_end <= total else { break }
 
             let raw_data = data.subdata(in: data_start..<data_end)
 
             if !file_name.isEmpty && !file_name.contains("..") {
                 let target_path = (destination_directory as NSString).appendingPathComponent(file_name)
-                if file_name.hasSuffix("/") {
-                    try? FileManager.default.createDirectory(atPath: target_path, withIntermediateDirectories: true)
-                } else {
-                    let parent = (target_path as NSString).deletingLastPathComponent
-                    try? FileManager.default.createDirectory(atPath: parent, withIntermediateDirectories: true)
-
-                    let uncompressed: Data?
-                    if comp_method == 8 {
-                        uncompressed = inflate_data(raw_data, uncompressed_size: uncomp_size)
+                let check_path = URL(fileURLWithPath: target_path).standardizedFileURL.path
+                if check_path.hasPrefix(destination_directory) {
+                    if file_name.hasSuffix("/") {
+                        try? FileManager.default.createDirectory(atPath: target_path, withIntermediateDirectories: true)
                     } else {
-                        uncompressed = raw_data
-                    }
+                        let parent = (target_path as NSString).deletingLastPathComponent
+                        try? FileManager.default.createDirectory(atPath: parent, withIntermediateDirectories: true)
 
-                    if let out_data = uncompressed {
-                        try? out_data.write(to: URL(fileURLWithPath: target_path), options: .atomic)
+                        let uncompressed: Data?
+                        if comp_method == 8 {
+                            uncompressed = inflate_data(raw_data, uncompressed_size: uncomp_size)
+                        } else {
+                            uncompressed = raw_data
+                        }
+
+                        if let out_data = uncompressed {
+                            try? out_data.write(to: URL(fileURLWithPath: target_path), options: .atomic)
+                        }
                     }
                 }
             }
@@ -211,18 +267,32 @@ public final class NativeZipEngine: Sendable {
 
     public static func list_zip_entries(archive_path: String) -> [ZipEntryInfo]? {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: archive_path)) else { return nil }
+
+        if let cd_entries = parse_central_directory(data: data) {
+            return cd_entries.map {
+                ZipEntryInfo(
+                    name: $0.name,
+                    is_directory: $0.is_directory,
+                    uncompressed_size: Int64($0.uncomp_size),
+                    compressed_size: Int64($0.comp_size),
+                    crc32: $0.crc
+                )
+            }
+        }
+
         var entries: [ZipEntryInfo] = []
         var offset = 0
         let total_count = data.count
 
         while offset + 30 <= total_count {
-            let sig = data.subdata(in: offset..<offset+4).withUnsafeBytes { $0.load(as: UInt32.self) }
+            let sig = read_u32(data: data, offset: offset)
             guard sig == 0x04034b50 else { break }
 
-            let comp_size = Int(data.subdata(in: offset+18..<offset+22).withUnsafeBytes { $0.load(as: UInt32.self) })
-            let uncomp_size = Int(data.subdata(in: offset+22..<offset+26).withUnsafeBytes { $0.load(as: UInt32.self) })
-            let name_len = Int(data.subdata(in: offset+26..<offset+28).withUnsafeBytes { $0.load(as: UInt16.self) })
-            let extra_len = Int(data.subdata(in: offset+28..<offset+30).withUnsafeBytes { $0.load(as: UInt16.self) })
+            let crc = read_u32(data: data, offset: offset + 14)
+            let comp_size = Int(read_u32(data: data, offset: offset + 18))
+            let uncomp_size = Int(read_u32(data: data, offset: offset + 22))
+            let name_len = Int(read_u16(data: data, offset: offset + 26))
+            let extra_len = Int(read_u16(data: data, offset: offset + 28))
 
             let name_start = offset + 30
             let name_end = name_start + name_len
@@ -237,13 +307,87 @@ public final class NativeZipEngine: Sendable {
                 is_directory: is_dir,
                 uncompressed_size: Int64(uncomp_size),
                 compressed_size: Int64(comp_size),
-                crc32: 0
+                crc32: crc
             ))
 
             offset = name_end + extra_len + comp_size
         }
 
         return entries.isEmpty ? nil : entries
+    }
+
+    private struct ParsedCDEntry {
+        let name: String
+        let is_directory: Bool
+        let comp_size: UInt32
+        let uncomp_size: UInt32
+        let crc: UInt32
+        let compression_method: UInt16
+        let local_header_offset: UInt32
+    }
+
+    private static func parse_central_directory(data: Data) -> [ParsedCDEntry]? {
+        let count = data.count
+        guard count >= 22 else { return nil }
+
+        let search_start = max(0, count - 65557)
+        var eocd_offset: Int? = nil
+
+        var idx = count - 22
+        while idx >= search_start {
+            if read_u32(data: data, offset: idx) == 0x06054b50 {
+                eocd_offset = idx
+                break
+            }
+            idx -= 1
+        }
+
+        guard let eocd = eocd_offset else { return nil }
+
+        let total_entries = Int(read_u16(data: data, offset: eocd + 10))
+        let cd_offset = Int(read_u32(data: data, offset: eocd + 16))
+
+        guard cd_offset < count else { return nil }
+
+        var results: [ParsedCDEntry] = []
+        var cur = cd_offset
+
+        for _ in 0..<total_entries {
+            guard cur + 46 <= count else { break }
+            let sig = read_u32(data: data, offset: cur)
+            guard sig == 0x02014b50 else { break }
+
+            let method = read_u16(data: data, offset: cur + 10)
+            let crc = read_u32(data: data, offset: cur + 16)
+            let comp_sz = read_u32(data: data, offset: cur + 20)
+            let uncomp_sz = read_u32(data: data, offset: cur + 24)
+            let name_len = Int(read_u16(data: data, offset: cur + 28))
+            let extra_len = Int(read_u16(data: data, offset: cur + 30))
+            let comment_len = Int(read_u16(data: data, offset: cur + 32))
+            let loc_offset = read_u32(data: data, offset: cur + 42)
+
+            let name_start = cur + 46
+            let name_end = name_start + name_len
+            guard name_end <= count else { break }
+
+            let name_data = data.subdata(in: name_start..<name_end)
+            let file_name = String(data: name_data, encoding: .utf8) ?? ""
+            let is_dir = file_name.hasSuffix("/")
+
+            results.append(ParsedCDEntry(
+                name: file_name,
+                is_directory: is_dir,
+                comp_size: comp_sz,
+                uncomp_size: uncomp_sz,
+                crc: crc,
+                compression_method: method,
+                local_header_offset: loc_offset
+            ))
+
+            cur = 46 + name_len + extra_len + comment_len + cur
+        }
+
+        return results.isEmpty ? nil : results
     }
 
     private static func deflate_data(_ data: Data) -> Data? {
@@ -280,19 +424,33 @@ public final class NativeZipEngine: Sendable {
         }
         defer { inflateEnd(&zs) }
 
-        var output = Data(count: uncompressed_size)
+        var output = Data()
+        let chunk_size = max(uncompressed_size > 0 ? uncompressed_size : 65536, 65536)
+        var buffer = [UInt8](repeating: 0, count: chunk_size)
+
         return data.withUnsafeBytes { in_buf in
             zs.next_in = UnsafeMutablePointer(mutating: in_buf.bindMemory(to: Bytef.self).baseAddress)
             zs.avail_in = uInt(data.count)
 
-            return output.withUnsafeMutableBytes { out_buf in
-                zs.next_out = out_buf.bindMemory(to: Bytef.self).baseAddress
-                zs.avail_out = uInt(uncompressed_size)
-
-                let res = inflate(&zs, Z_FINISH)
-                guard res == Z_STREAM_END || res == Z_OK else { return nil }
-                return Data(out_buf.prefix(Int(zs.total_out)))
+            while true {
+                let status = buffer.withUnsafeMutableBytes { out_buf -> Int32 in
+                    zs.next_out = out_buf.bindMemory(to: Bytef.self).baseAddress
+                    zs.avail_out = uInt(chunk_size)
+                    let ret = inflate(&zs, Z_NO_FLUSH)
+                    let written = chunk_size - Int(zs.avail_out)
+                    if written > 0 {
+                        output.append(out_buf.baseAddress!.assumingMemoryBound(to: UInt8.self), count: written)
+                    }
+                    return ret
+                }
+                if status == Z_STREAM_END {
+                    break
+                }
+                if status != Z_OK {
+                    return nil
+                }
             }
+            return output
         }
     }
 
@@ -309,6 +467,16 @@ public final class NativeZipEngine: Sendable {
         let sec = UInt16(((comps.second ?? 0) / 2) & 0x1F)
         let time_val = (hr << 11) | (min << 5) | sec
         return (time_val, date_val)
+    }
+
+    private static func read_u16(data: Data, offset: Int) -> UInt16 {
+        guard offset + 2 <= data.count else { return 0 }
+        return data.subdata(in: offset..<offset+2).withUnsafeBytes { $0.load(as: UInt16.self) }.littleEndian
+    }
+
+    private static func read_u32(data: Data, offset: Int) -> UInt32 {
+        guard offset + 4 <= data.count else { return 0 }
+        return data.subdata(in: offset..<offset+4).withUnsafeBytes { $0.load(as: UInt32.self) }.littleEndian
     }
 
     private static func append_u16(_ d: inout Data, _ val: UInt16) {

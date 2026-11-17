@@ -3,11 +3,20 @@
 ## [1.1.3] - 2026-11-17
 
 ### Fixed
+- **ZIP Extraction & Archive Engine (`NativeZipEngine`)**:
+  - Implemented standard PKZIP Central Directory parser (`0x02014b50`) and End of Central Directory locator (`0x06054b50`).
+  - Fixed extraction failure on ZIP files with streaming data descriptors (General Purpose Bit 3 `0x0008`) where local header sizes are zero.
+  - Added robust chunk-streaming Deflate inflation (`Z_NO_FLUSH` via kernel `zlib`).
+  - Restructured archive extraction pipeline in `ArchiveManager`: prioritized `.zip` / `.apk` processing before tar checks, eliminating "tar binary not found" errors on devices without `tar`.
+  - Multi-tier extraction fallback: `NativeZipEngine` $\to$ `/usr/bin/ditto -x -k` $\to$ `unzip`.
+- **Dynamic Rootless Jailbreak Resolution (`RootlessPaths`)**:
+  - Automatically extracts container-based rootless jailbreak paths (`.jbroot-*`) directly from `Bundle.main.bundlePath` on modern iOS versions (iOS 16–18).
+  - Dynamic shell resolver (`RootlessPaths.resolve_shell()`) and complete rootless environment `PATH` configuration (`<jbroot>/usr/bin:<jbroot>/bin:/var/jb/usr/bin:/var/jb/bin:/usr/bin:/bin`).
 - **App Containers & Installed Apps Crash Resolution**:
-  - Eliminated unsafe Objective-C runtime private selector reflection (`_applicationIconImageForBundleIdentifier:format:scale:`) that triggered `EXC_BAD_ACCESS` / `SIGSEGV` or uncaught exceptions on system daemons and view services lacking standard assets.
+  - Eliminated unsafe Objective-C runtime private selector reflection (`_applicationIconImageForBundleIdentifier:format:scale:`) that triggered `EXC_BAD_ACCESS` / `SIGSEGV` on background daemons.
   - Implemented safe native icon resolution using `.app` bundle directory scanning and `Bundle(path:)` asset lookups with zero crash risk.
   - Corrected display names for system daemons: falls back to clean bundle folder name instead of empty string ` (1.0)`.
-  - Added dedicated SF Symbol fallbacks with distinct theme tints (`terminal` for Jailbreak, `applelogo` for System, `app.gift` for User apps) when no image asset is bundled.
+  - Added dedicated SF Symbol fallbacks with distinct theme tints (`terminal` for Jailbreak, `applelogo` for System, `app.gift` for User apps).
 - **Universal iPadOS ActionSheet Crash Prevention (`present_adaptive_sheet`)**:
   - Automatically configures popover presentation anchoring across all `UIAlertController(preferredStyle: .actionSheet)` views to prevent `NSGenericException` crashes on iPad Pro and iPadOS devices.
 

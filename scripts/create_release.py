@@ -25,6 +25,15 @@ Direct native port of the open-source [MP Manager](https://github.com/Abdurazaaq
 ---
 
 ### What's New in v1.1.3
+- **ZIP Extraction & Archive Engine (`NativeZipEngine`)**:
+  - Implemented standard PKZIP Central Directory parser (`0x02014b50`) and End of Central Directory locator (`0x06054b50`).
+  - Fixed extraction failure on ZIP files with streaming data descriptors (General Purpose Bit 3 `0x0008`) where local header sizes are zero.
+  - Added robust chunk-streaming Deflate inflation (`Z_NO_FLUSH` via Darwin kernel `zlib`).
+  - Restructured archive extraction pipeline in `ArchiveManager`: prioritized `.zip` / `.apk` processing before tar checks, eliminating "tar binary not found" errors on devices without `tar`.
+  - Multi-tier extraction fallback: `NativeZipEngine` $\to$ `/usr/bin/ditto -x -k` $\to$ `unzip`.
+- **Dynamic Rootless Jailbreak Resolution (`RootlessPaths`)**:
+  - Automatically extracts container-based rootless jailbreak paths (`.jbroot-*`) directly from `Bundle.main.bundlePath` on modern iOS versions (iOS 16–18).
+  - Dynamic shell resolver (`RootlessPaths.resolve_shell()`) and complete rootless environment `PATH` configuration (`<jbroot>/usr/bin:<jbroot>/bin:/var/jb/usr/bin:/var/jb/bin:/usr/bin:/bin`).
 - **Fixed Crash on Opening "Installed Apps & Containers"**:
   - Eliminated unsafe Objective-C dynamic reflection (`_applicationIconImageForBundleIdentifier:format:scale:`) that caused `EXC_BAD_ACCESS` / uncaught exceptions on background view services and system daemons.
   - Implemented safe, multi-tier native icon extraction via `.app` bundle directory scans and `Bundle(path:)` asset lookups with zero crash risk.

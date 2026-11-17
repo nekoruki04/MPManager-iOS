@@ -99,6 +99,23 @@ public final class ArchiveManager: Sendable {
 
         let lower = source_path.lowercased()
 
+        if lower.hasSuffix(".zip") || lower.hasSuffix(".apk") {
+            do {
+                try NativeZipEngine.extract_zip(archive_path: source_path, destination_directory: dest_url.path)
+                return
+            } catch {
+                if FileManager.default.fileExists(atPath: "/usr/bin/ditto") {
+                    let res = try? run_command(executable: "/usr/bin/ditto", arguments: ["-x", "-k", source_path, dest_url.path])
+                    if let res = res, res.status == 0 { return }
+                }
+                if let unzip_bin = resolve_binary("unzip") {
+                    let res = try? run_command(executable: unzip_bin, arguments: ["-q", "-o", source_path, "-d", dest_url.path])
+                    if let res = res, res.status == 0 { return }
+                }
+            }
+            return
+        }
+
         if lower.hasSuffix(".7z") {
             guard let seven_zip = resolve_binary("7z") ?? resolve_binary("7za") else {
                 throw NSError(domain: "ArchiveManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "7z tool not found. Install p7zip from Sileo."])
@@ -121,10 +138,6 @@ public final class ArchiveManager: Sendable {
             return
         }
 
-        guard let tar_bin = resolve_binary("tar") else {
-            throw NSError(domain: "ArchiveManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "tar binary not found"])
-        }
-
         var flags = "-x"
         if lower.hasSuffix(".tar.gz") || lower.hasSuffix(".tgz") || lower.hasSuffix(".gz") {
             flags += "z"
@@ -135,30 +148,19 @@ public final class ArchiveManager: Sendable {
         }
         flags += "f"
 
-        if lower.hasSuffix(".zip") || lower.hasSuffix(".apk") {
-            do {
-                try NativeZipEngine.extract_zip(archive_path: source_path, destination_directory: dest_url.path)
+        if let tar_bin = resolve_binary("tar") {
+            let args = [flags, source_path, "--no-same-owner", "-C", dest_url.path]
+            let res = try? run_command(executable: tar_bin, arguments: args)
+            if let res = res, res.status == 0 {
                 return
-            } catch {
-                if let unzip_bin = resolve_binary("unzip") {
-                    let res = try? run_command(executable: unzip_bin, arguments: ["-q", "-o", source_path, "-d", dest_url.path])
-                    if let res = res, res.status == 0 { return }
-                }
             }
-        }
-
-        let args = [flags, source_path, "--no-same-owner", "-C", dest_url.path]
-        let res = try? run_command(executable: tar_bin, arguments: args)
-        if let res = res, res.status == 0 {
-            return
         }
 
         if (try? PrivilegeManager.extract_archive(source: source_path, destination: dest_url.path)) != nil {
             return
         }
 
-        let exit_code = res?.status ?? 1
-        throw NSError(domain: "ArchiveManager", code: Int(exit_code), userInfo: [NSLocalizedDescriptionKey: "Extraction exited with status \(exit_code)"])
+        throw NSError(domain: "ArchiveManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Extraction failed: no compatible extractor found for \(lower)"])
     }
 
     public static func create_archive(sources: [String], destination_path: String, format: ArchiveFormat) throws {

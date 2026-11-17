@@ -200,13 +200,9 @@ public final class ShellRunnerViewController: UIViewController {
         var status: Int32 = 0
 
         let final_cmd: String
-        if as_root && PrivilegeManager.shared.is_root_available {
-            let helper = RootlessPaths.jb("/Applications/MPManager.app/mpRootHelper")
-            if FileManager.default.fileExists(atPath: helper) {
-                final_cmd = "\(helper) sh -c '\(cmd.replacingOccurrences(of: "'", with: "'\\''"))'"
-            } else {
-                final_cmd = cmd
-            }
+        let helper = PrivilegeManager.helper_path ?? RootlessPaths.jb("/Applications/MPManager.app/mpRootHelper")
+        if as_root && PrivilegeManager.shared.is_root_available && FileManager.default.fileExists(atPath: helper) {
+            final_cmd = "\(helper) sh -c '\(cmd.replacingOccurrences(of: "'", with: "'\\''"))'"
         } else {
             final_cmd = cmd
         }
@@ -222,7 +218,7 @@ public final class ShellRunnerViewController: UIViewController {
         posix_spawn_file_actions_adddup2(&file_actions, pipe_fds[1], STDERR_FILENO)
         posix_spawn_file_actions_addclose(&file_actions, pipe_fds[0])
 
-        let sh_path = "/bin/sh"
+        let sh_path = RootlessPaths.resolve_shell()
         let args = [sh_path, "-c", final_cmd]
         var c_args = args.map { strdup($0) }
         c_args.append(nil)
@@ -230,8 +226,19 @@ public final class ShellRunnerViewController: UIViewController {
             for ptr in c_args where ptr != nil { free(ptr) }
         }
 
+        let env_strs = [
+            "PATH=" + RootlessPaths.system_path_env,
+            "HOME=" + NSHomeDirectory(),
+            "TERM=xterm-256color"
+        ]
+        var c_env = env_strs.map { strdup($0) }
+        c_env.append(nil)
+        defer {
+            for ptr in c_env where ptr != nil { free(ptr) }
+        }
+
         var pid: pid_t = 0
-        let spawn_err = posix_spawnp(&pid, sh_path, &file_actions, nil, &c_args, environ)
+        let spawn_err = posix_spawn(&pid, sh_path, &file_actions, nil, &c_args, &c_env)
         close(pipe_fds[1])
 
         if spawn_err != 0 {

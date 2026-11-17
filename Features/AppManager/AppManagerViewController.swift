@@ -118,7 +118,7 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
         }
     }
 
-    private nonisolated static func scan_data_containers() -> [String: String] {
+    nonisolated static func scan_data_containers() -> [String: String] {
         var map: [String: String] = [:]
         let data_base = "/var/mobile/Containers/Data/Application"
         guard let uuids = try? FileManager.default.contentsOfDirectory(atPath: data_base) else {
@@ -135,7 +135,7 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
         return map
     }
 
-    private nonisolated static func scan_directory_bundles(base_dir: String, type: InstalledAppItem.AppType, container_map: [String: String]) -> [InstalledAppItem] {
+    nonisolated static func scan_directory_bundles(base_dir: String, type: InstalledAppItem.AppType, container_map: [String: String]) -> [InstalledAppItem] {
         var results: [InstalledAppItem] = []
         guard let uuids = try? FileManager.default.contentsOfDirectory(atPath: base_dir) else { return results }
         for uuid in uuids {
@@ -151,7 +151,7 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
         return results
     }
 
-    private nonisolated static func scan_flat_bundles(base_dir: String, type: InstalledAppItem.AppType, container_map: [String: String]) -> [InstalledAppItem] {
+    nonisolated static func scan_flat_bundles(base_dir: String, type: InstalledAppItem.AppType, container_map: [String: String]) -> [InstalledAppItem] {
         var results: [InstalledAppItem] = []
         guard let contents = try? FileManager.default.contentsOfDirectory(atPath: base_dir) else { return results }
         for item in contents where item.hasSuffix(".app") {
