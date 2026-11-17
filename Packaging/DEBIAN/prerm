@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+APP_PATH="/var/jb/Applications/MPManager.app"
+UICACHE="/var/jb/usr/bin/uicache"
+
+if [ -x "$UICACHE" ]; then
+    "$UICACHE" -u "$APP_PATH" || true
+fi
+
+exit 0

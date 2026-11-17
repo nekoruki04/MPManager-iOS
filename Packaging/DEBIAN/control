@@ -1,0 +1,13 @@
+Package: io.github.abdurazaaqmohammed.mpmanager
+Name: MP Manager for iOS
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Open-source dual-pane file manager & APK/binary analysis tool for Dopamine Rootless
+Maintainer: nekoruki <nekoruki04@users.noreply.github.com>
+Author: Abdurazaaq Mohammed & nekoruki
+Section: Utilities
+Priority: optional
+Depends: firmware (>= 15.0)
+Depiction: https://github.com/nekoruki04/MPManager-iOS
+Homepage: https://github.com/AbdurazaaqMohammed/MP-Manager
+Icon: https://raw.githubusercontent.com/nekoruki04/MPManager-iOS/main/Packaging/icon.png

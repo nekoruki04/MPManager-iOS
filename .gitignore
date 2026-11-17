@@ -1,0 +1,17 @@
+# Build products and intermediate files
+build/
+*.o
+*.d
+*.dia
+*.swiftdoc
+*.swiftmodule
+*.swiftsourceinfo
+*.abi.json
+
+# macOS metadata
+.DS_Store
+._*
+
+# Temporary test artifacts
+test_report.json
+*.tmp

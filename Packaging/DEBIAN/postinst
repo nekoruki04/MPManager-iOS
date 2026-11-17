@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+APP_PATH="/var/jb/Applications/MPManager.app"
+UICACHE="/var/jb/usr/bin/uicache"
+
+chown -R 0:0 "$APP_PATH" 2>/dev/null || true
+chmod 4755 "$APP_PATH/MPManager" 2>/dev/null || true
+if [ -f "$APP_PATH/mpRootHelper" ]; then
+    chown 0:0 "$APP_PATH/mpRootHelper" 2>/dev/null || true
+    chmod 4755 "$APP_PATH/mpRootHelper" 2>/dev/null || true
+fi
+
+if [ -x "$UICACHE" ]; then
+    "$UICACHE" -p "$APP_PATH" || true
+fi
+
+exit 0
