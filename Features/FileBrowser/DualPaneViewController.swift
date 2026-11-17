@@ -257,6 +257,34 @@ public final class DualPaneViewController: UIViewController {
             let ftp_vc = FtpServerViewController()
             self?.present(UINavigationController(rootViewController: ftp_vc), animated: true)
         }
+        side_vc.on_open_app_manager = { [weak self] in
+            let app_vc = AppManagerViewController()
+            app_vc.on_navigate_to_path = { [weak self] path in
+                self?.active_pane.navigate_to(path: path)
+            }
+            self?.present(UINavigationController(rootViewController: app_vc), animated: true)
+        }
+        side_vc.on_open_storage_manager = { [weak self] in
+            let stor_vc = StorageManagerViewController()
+            stor_vc.on_locate_file = { [weak self] path in
+                self?.active_pane.navigate_to(path: path)
+            }
+            self?.present(UINavigationController(rootViewController: stor_vc), animated: true)
+        }
+        side_vc.on_open_wifi_manager = { [weak self] in
+            let wifi_vc = WifiManagerViewController()
+            self?.present(UINavigationController(rootViewController: wifi_vc), animated: true)
+        }
+        side_vc.on_open_shell_runner = { [weak self] in
+            let sh_vc = ShellRunnerViewController()
+            self?.present(UINavigationController(rootViewController: sh_vc), animated: true)
+        }
+        side_vc.on_open_command_helper = { [weak self] in
+            guard let self = self else { return }
+            let sel = self.active_pane.current_selected_items.first
+            let cmd_vc = CommandHelperViewController(target_item: sel)
+            self.present(UINavigationController(rootViewController: cmd_vc), animated: true)
+        }
         side_vc.on_open_settings = { [weak self] in
             let set_vc = SettingsViewController()
             self?.present(UINavigationController(rootViewController: set_vc), animated: true)
@@ -277,7 +305,35 @@ public final class DualPaneViewController: UIViewController {
     }
 
     @objc private func open_more_menu() {
-        let sheet = UIAlertController(title: "Options", message: nil, preferredStyle: .actionSheet)
+        let sheet = UIAlertController(title: "Tools & Options", message: nil, preferredStyle: .actionSheet)
+        sheet.addAction(UIAlertAction(title: "Installed Apps & Containers", style: .default, handler: { [weak self] _ in
+            let app_vc = AppManagerViewController()
+            app_vc.on_navigate_to_path = { [weak self] path in
+                self?.active_pane.navigate_to(path: path)
+            }
+            self?.present(UINavigationController(rootViewController: app_vc), animated: true)
+        }))
+        sheet.addAction(UIAlertAction(title: "Storage Manager", style: .default, handler: { [weak self] _ in
+            let stor_vc = StorageManagerViewController()
+            stor_vc.on_locate_file = { [weak self] path in
+                self?.active_pane.navigate_to(path: path)
+            }
+            self?.present(UINavigationController(rootViewController: stor_vc), animated: true)
+        }))
+        sheet.addAction(UIAlertAction(title: "Wi-Fi & Network Manager", style: .default, handler: { [weak self] _ in
+            let wifi_vc = WifiManagerViewController()
+            self?.present(UINavigationController(rootViewController: wifi_vc), animated: true)
+        }))
+        sheet.addAction(UIAlertAction(title: "Shell Command Runner", style: .default, handler: { [weak self] _ in
+            let sh_vc = ShellRunnerViewController()
+            self?.present(UINavigationController(rootViewController: sh_vc), animated: true)
+        }))
+        sheet.addAction(UIAlertAction(title: "Command Helper", style: .default, handler: { [weak self] _ in
+            guard let self = self else { return }
+            let sel = self.active_pane.current_selected_items.first
+            let cmd_vc = CommandHelperViewController(target_item: sel)
+            self.present(UINavigationController(rootViewController: cmd_vc), animated: true)
+        }))
         sheet.addAction(UIAlertAction(title: "Bookmarks & History", style: .default, handler: { [weak self] _ in
             self?.open_bookmarks_drawer()
         }))
@@ -311,6 +367,72 @@ public final class DualPaneViewController: UIViewController {
 
     private func open_file(_ item: FileItem) {
         let ext = item.file_extension
+
+        if item.name.hasSuffix(".bak") {
+            let alert = UIAlertController(title: "Restore Backup", message: "Do you want to restore '\(item.name)' to its original file?", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Restore", style: .destructive, handler: { [weak self] _ in
+                let original_path = (item.path as NSString).deletingPathExtension
+                do {
+                    if FileManager.default.fileExists(atPath: original_path) {
+                        try FileManager.default.removeItem(atPath: original_path)
+                    }
+                    try FileManager.default.copyItem(atPath: item.path, toPath: original_path)
+                    self?.active_pane.reload()
+                } catch {
+                    let err = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                    err.addAction(UIAlertAction(title: "OK", style: .default))
+                    self?.present(err, animated: true)
+                }
+            }))
+            alert.addAction(UIAlertAction(title: "Open in Editor", style: .default, handler: { [weak self] _ in
+                let edit_vc = TextEditorViewController(file_path: item.path)
+                self?.present(UINavigationController(rootViewController: edit_vc), animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            present(alert, animated: true)
+            return
+        }
+
+        if ["mp3", "wav", "m4a", "aac", "flac", "ogg", "wma", "mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext) {
+            let player_vc = AudioVideoPlayerViewController(media_path: item.path)
+            player_vc.modalPresentationStyle = .fullScreen
+            present(player_vc, animated: true)
+            return
+        }
+
+        if ["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
+            let dir = (item.path as NSString).deletingLastPathComponent
+            let all_images = (try? FileManager.default.contentsOfDirectory(atPath: dir))?.filter {
+                let e = ($0 as NSString).pathExtension.lowercased()
+                return ["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(e)
+            }.map { (dir as NSString).appendingPathComponent($0) } ?? [item.path]
+            let viewer = ImageViewerViewController(current_path: item.path, all_image_paths: all_images)
+            viewer.modalPresentationStyle = .fullScreen
+            present(viewer, animated: true)
+            return
+        }
+
+        if ext == "pdf" {
+            let pdf_vc = PdfViewerViewController(pdf_path: item.path)
+            present(UINavigationController(rootViewController: pdf_vc), animated: true)
+            return
+        }
+
+        if ["sh", "bash", "zsh", "command"].contains(ext) {
+            let alert = UIAlertController(title: item.name, message: "Shell Script Actions:", preferredStyle: .actionSheet)
+            alert.addAction(UIAlertAction(title: "Run in Terminal", style: .default, handler: { [weak self] _ in
+                let sh_vc = ShellRunnerViewController(script_path: item.path)
+                self?.present(UINavigationController(rootViewController: sh_vc), animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: "Edit Script", style: .default, handler: { [weak self] _ in
+                let edit_vc = TextEditorViewController(file_path: item.path)
+                self?.present(UINavigationController(rootViewController: edit_vc), animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            present(alert, animated: true)
+            return
+        }
+
         if ext == "apk" {
             let apk_vc = ApkInfoViewController(apk_path: item.path)
             apk_vc.on_browse_apk = { [weak self] path in
@@ -479,6 +601,24 @@ extension DualPaneViewController: MainFilesPaneDelegate {
                     self?.active_pane.reload()
                 }
                 self?.present(UINavigationController(rootViewController: prop_vc), animated: true)
+            }))
+            alert.addAction(UIAlertAction(title: "Command Helper...", style: .default, handler: { [weak self] _ in
+                let cmd_vc = CommandHelperViewController(target_item: items[0])
+                self?.present(UINavigationController(rootViewController: cmd_vc), animated: true)
+            }))
+            if ["sh", "bash", "zsh", "command"].contains(items[0].file_extension) {
+                alert.addAction(UIAlertAction(title: "Run in Terminal", style: .default, handler: { [weak self] _ in
+                    let runner = ShellRunnerViewController(script_path: items[0].path)
+                    self?.present(UINavigationController(rootViewController: runner), animated: true)
+                }))
+            }
+        } else if count > 1 {
+            alert.addAction(UIAlertAction(title: "Batch Rename...", style: .default, handler: { [weak self] _ in
+                let batch_vc = BatchRenameViewController(items: items)
+                batch_vc.on_completed = { [weak self] in
+                    self?.active_pane.reload()
+                }
+                self?.present(UINavigationController(rootViewController: batch_vc), animated: true)
             }))
         }
 

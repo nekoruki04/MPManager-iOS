@@ -40,6 +40,10 @@ public struct RootlessPaths: Sendable {
         return "/Applications"
     }
 
+    public static func jb(_ relative_path: String) -> String {
+        return resolve_rootless(relative_path)
+    }
+
     public static func resolve_rootless(_ relative_path: String) -> String {
         let cleaned = relative_path.hasPrefix("/") ? String(relative_path.dropFirst()) : relative_path
         let candidate = (resolved_jailbreak_path as NSString).appendingPathComponent(cleaned)

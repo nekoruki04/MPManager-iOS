@@ -4,6 +4,10 @@ import Darwin
 public final class PrivilegeManager: Sendable {
     public static let shared = PrivilegeManager()
 
+    public var is_root_available: Bool {
+        return getuid() == 0 || geteuid() == 0 || PrivilegeManager.helper_path != nil
+    }
+
     public init() {}
 
     public static var helper_path: String? {

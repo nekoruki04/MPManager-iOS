@@ -5,6 +5,11 @@ public final class SideDrawerViewController: UIViewController {
     public var on_open_mcp: (() -> Void)?
     public var on_open_network: (() -> Void)?
     public var on_open_ftp_server: (() -> Void)?
+    public var on_open_app_manager: (() -> Void)?
+    public var on_open_storage_manager: (() -> Void)?
+    public var on_open_wifi_manager: (() -> Void)?
+    public var on_open_shell_runner: (() -> Void)?
+    public var on_open_command_helper: (() -> Void)?
     public var on_open_settings: (() -> Void)?
 
     private let scroll_view = UIScrollView()
@@ -151,10 +156,15 @@ public final class SideDrawerViewController: UIViewController {
         sec_label.textColor = MPTheme.text_secondary
         content_stack.addArrangedSubview(sec_label)
 
-        let tools = [
-            ("MCP Service (AI Tools)", "cpu.fill", #selector(open_mcp_tapped)),
-            ("Network Storage (WebDAV/SFTP/FTP/SMB)", "network", #selector(open_network_tapped)),
+        let tools: [(String, String, Selector)] = [
+            ("Installed Apps & Containers", "square.stack.3d.up.fill", #selector(open_app_manager_tapped)),
+            ("Storage Manager", "chart.pie.fill", #selector(open_storage_manager_tapped)),
+            ("Wi-Fi & Network Manager", "wifi", #selector(open_wifi_manager_tapped)),
+            ("Shell Command Runner", "terminal.fill", #selector(open_shell_runner_tapped)),
+            ("Command Helper", "applescript.fill", #selector(open_command_helper_tapped)),
             ("FTP Server (Wireless Transfer)", "antenna.radiowaves.left.and.right", #selector(open_ftp_server_tapped)),
+            ("Network Storage (WebDAV/FTP)", "network", #selector(open_network_tapped)),
+            ("MCP Service (AI Tools)", "cpu.fill", #selector(open_mcp_tapped)),
             ("Settings & Preferences", "gearshape.fill", #selector(open_settings_tapped))
         ]
 
@@ -177,6 +187,36 @@ public final class SideDrawerViewController: UIViewController {
         guard let path = gesture.view?.accessibilityIdentifier else { return }
         dismiss(animated: true) { [weak self] in
             self?.on_select_location?(path)
+        }
+    }
+
+    @objc private func open_app_manager_tapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.on_open_app_manager?()
+        }
+    }
+
+    @objc private func open_storage_manager_tapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.on_open_storage_manager?()
+        }
+    }
+
+    @objc private func open_wifi_manager_tapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.on_open_wifi_manager?()
+        }
+    }
+
+    @objc private func open_shell_runner_tapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.on_open_shell_runner?()
+        }
+    }
+
+    @objc private func open_command_helper_tapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.on_open_command_helper?()
         }
     }
 
