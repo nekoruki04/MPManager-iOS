@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.3] - 2026-11-17
+
+### Fixed
+- **App Containers & Installed Apps Crash Resolution**:
+  - Eliminated unsafe Objective-C runtime private selector reflection (`_applicationIconImageForBundleIdentifier:format:scale:`) that triggered `EXC_BAD_ACCESS` / `SIGSEGV` or uncaught exceptions on system daemons and view services lacking standard assets.
+  - Implemented safe native icon resolution using `.app` bundle directory scanning and `Bundle(path:)` asset lookups with zero crash risk.
+  - Corrected display names for system daemons: falls back to clean bundle folder name instead of empty string ` (1.0)`.
+  - Added dedicated SF Symbol fallbacks with distinct theme tints (`terminal` for Jailbreak, `applelogo` for System, `app.gift` for User apps) when no image asset is bundled.
+- **Universal iPadOS ActionSheet Crash Prevention (`present_adaptive_sheet`)**:
+  - Automatically configures popover presentation anchoring across all `UIAlertController(preferredStyle: .actionSheet)` views to prevent `NSGenericException` crashes on iPad Pro and iPadOS devices.
+
 ## [1.1.2] - 2026-11-17
 
 ### Fixed

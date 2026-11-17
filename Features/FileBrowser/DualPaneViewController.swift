@@ -213,7 +213,7 @@ public final class DualPaneViewController: UIViewController {
             self?.prompt_create_item(is_directory: false)
         }))
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        present_adaptive_sheet(alert)
     }
 
     private func prompt_create_item(is_directory: Bool) {
@@ -237,7 +237,7 @@ public final class DualPaneViewController: UIViewController {
             }
         }))
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        present_adaptive_sheet(alert)
     }
 
     @objc private func open_sidebar() {
@@ -354,7 +354,7 @@ public final class DualPaneViewController: UIViewController {
             }
         }))
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(sheet, animated: true)
+        present_adaptive_sheet(sheet, bar_button_item: navigationItem.rightBarButtonItem)
     }
 
     private func open_search_dialog() {
@@ -528,7 +528,7 @@ public final class DualPaneViewController: UIViewController {
             }
         }))
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        present_adaptive_sheet(alert)
     }
 }
 
@@ -652,7 +652,7 @@ extension DualPaneViewController: MainFilesPaneDelegate {
             }
         }))
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        present_adaptive_sheet(alert)
     }
 
     private func prompt_compress(_ items: [FileItem]) {
@@ -694,6 +694,6 @@ extension DualPaneViewController: MainFilesPaneDelegate {
             }
         }))
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        present_adaptive_sheet(alert)
     }
 }

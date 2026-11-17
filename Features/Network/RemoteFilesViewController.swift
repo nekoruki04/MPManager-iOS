@@ -202,7 +202,7 @@ public final class RemoteFilesViewController: UIViewController {
                 self?.delete_remote_item(item)
             }))
             sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-            present(sheet, animated: true)
+            present_adaptive_sheet(sheet)
         }
     }
 

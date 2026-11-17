@@ -167,7 +167,18 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
         let plist_path = (bundle_path as NSString).appendingPathComponent("Info.plist")
         guard let plist = NSDictionary(contentsOfFile: plist_path) as? [String: Any] else { return nil }
 
-        let name = (plist["CFBundleDisplayName"] as? String) ?? (plist["CFBundleName"] as? String) ?? (bundle_path as NSString).lastPathComponent.replacingOccurrences(of: ".app", with: "")
+        var display_name: String? = nil
+        if let s = plist["CFBundleDisplayName"] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            display_name = s
+        } else if let s = plist["CFBundleName"] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            display_name = s
+        } else {
+            let folder_name = (bundle_path as NSString).lastPathComponent.replacingOccurrences(of: ".app", with: "")
+            if !folder_name.isEmpty {
+                display_name = folder_name
+            }
+        }
+        let name = display_name ?? "Unknown App"
         let bundle_id = (plist["CFBundleIdentifier"] as? String) ?? "unknown.bundle.id"
         let version = (plist["CFBundleShortVersionString"] as? String) ?? (plist["CFBundleVersion"] as? String) ?? "1.0"
         let data_dir = container_map[bundle_id]
@@ -215,7 +226,8 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
             if let bundle_contents = try? FileManager.default.contentsOfDirectory(atPath: bundle_path) {
                 let candidates = bundle_contents.filter {
                     let lower = $0.lowercased()
-                    return lower.hasSuffix(".png") && (lower.contains("icon") || lower.contains("appicon"))
+                    guard lower.hasSuffix(".png") else { return false }
+                    return lower.contains("icon") || lower.contains("appicon") || lower.contains("logo")
                 }.sorted { $0.count > $1.count }
                 if let first_icon = candidates.first {
                     icon_file_path = (bundle_path as NSString).appendingPathComponent(first_icon)
@@ -246,15 +258,14 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
             return scaled
         }
 
-        let sel = NSSelectorFromString("_applicationIconImageForBundleIdentifier:format:scale:")
-        if let method = class_getClassMethod(UIImage.self, sel) {
-            typealias Func = @convention(c) (AnyClass, Selector, NSString, Int32, CGFloat) -> AnyObject?
-            let imp = method_getImplementation(method)
-            let fn = unsafeBitCast(imp, to: Func.self)
-            if let obj = fn(UIImage.self, sel, app.bundle_id as NSString, 2, 2.0) as? UIImage {
-                let scaled = scale_icon(obj)
-                icon_cache.setObject(scaled, forKey: cache_key)
-                return scaled
+        if let bundle = Bundle(path: app.bundle_path) {
+            let lookups = ["AppIcon60x60", "AppIcon76x76", "AppIcon", "Icon", "AppIcon-1"]
+            for icon_name in lookups {
+                if let raw_img = UIImage(named: icon_name, in: bundle, compatibleWith: nil) {
+                    let scaled = scale_icon(raw_img)
+                    icon_cache.setObject(scaled, forKey: cache_key)
+                    return scaled
+                }
             }
         }
 
@@ -262,13 +273,15 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
     }
 
     private func scale_icon(_ image: UIImage, size: CGSize = CGSize(width: 38, height: 38)) -> UIImage {
-        UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
-        let rect = CGRect(origin: .zero, size: size)
-        UIBezierPath(roundedRect: rect, cornerRadius: 8).addClip()
-        image.draw(in: rect)
-        let scaled = UIGraphicsGetImageFromCurrentImageContext() ?? image
-        UIGraphicsEndImageContext()
-        return scaled
+        guard image.size.width > 0 && image.size.height > 0 else { return image }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = UIScreen.main.scale
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { _ in
+            let rect = CGRect(origin: .zero, size: size)
+            UIBezierPath(roundedRect: rect, cornerRadius: 8).addClip()
+            image.draw(in: rect)
+        }
     }
 
     private func filter_apps() {
@@ -318,16 +331,20 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
             cell.imageView?.clipsToBounds = true
         } else {
             let icon_img: UIImage?
+            let tint: UIColor
             switch app.app_type {
             case .jailbreak:
                 icon_img = UIImage(systemName: "terminal")
+                tint = MPTheme.secondary_accent
             case .system:
                 icon_img = UIImage(systemName: "applelogo")
+                tint = MPTheme.text_secondary
             case .user:
                 icon_img = UIImage(systemName: "app.gift")
+                tint = MPTheme.primary_accent
             }
             cell.imageView?.image = icon_img
-            cell.imageView?.tintColor = MPTheme.primary_accent
+            cell.imageView?.tintColor = tint
             cell.imageView?.layer.cornerRadius = 0
             cell.imageView?.clipsToBounds = false
         }
@@ -367,11 +384,6 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = table_view
-            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
-            popover.permittedArrowDirections = []
-        }
-        present(alert, animated: true)
+        present_adaptive_sheet(alert)
     }
 }

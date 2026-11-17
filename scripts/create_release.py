@@ -9,14 +9,14 @@ for line in res.decode().splitlines():
     if line.startswith('password='):
         token = line.split('=', 1)[1]
 
-deb_path = 'build/mpmanager-rootless_1.1.2_iphoneos-arm.deb'
+deb_path = 'build/mpmanager-rootless_1.1.3_iphoneos-arm.deb'
 deb_size = os.path.getsize(deb_path)
 with open('build/checksums_mpmanager.txt', 'r') as f:
     checksum = f.read().strip()
 
 sha256_hash = checksum.split()[0]
 
-release_body = f"""# MP Manager for iOS v1.1.2 (Dopamine Rootless)
+release_body = f"""# MP Manager for iOS v1.1.3 (Dopamine Rootless)
 
 A free, native dual-pane file manager, APK/binary reverse engineering suite, and MCP server for iOS designed specifically for jailbroken devices running **Dopamine 2**, **Dopamine 3**, and **RootHide**.
 
@@ -24,31 +24,32 @@ Direct native port of the open-source [MP Manager](https://github.com/Abdurazaaq
 
 ---
 
-### What's New in v1.1.2
-- **Native ZIP Archiving & Extraction Engine (`NativeZipEngine`)**:
-  - Replaced CLI-dependent zip/unzip subprocess invocation with a self-contained, native streaming PKZIP engine using Darwin kernel `zlib`.
-  - Fixes zip archive creation errors when `zip` binary is not installed in `/var/jb/usr/bin`.
-  - Fixed fallback to `tar` which caused format mismatch and corruption on `.zip` destinations.
-  - Streaming file writing via `FileHandle` with RFC 1951 Deflate compression, correct DOS date/time encoding, and Central Directory generation.
-  - Native ZIP listing and extraction with Deflate inflation and path traversal protection.
+### What's New in v1.1.3
+- **Fixed Crash on Opening "Installed Apps & Containers"**:
+  - Eliminated unsafe Objective-C dynamic reflection (`_applicationIconImageForBundleIdentifier:format:scale:`) that caused `EXC_BAD_ACCESS` / uncaught exceptions on background view services and system daemons.
+  - Implemented safe, multi-tier native icon extraction via `.app` bundle directory scans and `Bundle(path:)` asset lookups with zero crash risk.
+  - Fixed empty application names (` (1.0)`) for system daemons; cleanly falls back to bundle folder name.
+  - Added categorized, tinted SF Symbol placeholders (`terminal` for Jailbreak, `applelogo` for System, `app.gift` for User apps) when no asset exists.
+- **Universal iPadOS ActionSheet Crash Prevention (`present_adaptive_sheet`)**:
+  - Configured safe `popoverPresentationController` anchoring across all `UIAlertController(preferredStyle: .actionSheet)` views to prevent `NSGenericException` crashes on iPad Pro and iPadOS.
 
 ---
 
 ### Package Details & Checksums
-- **Package:** `mpmanager-rootless_1.1.2_iphoneos-arm.deb` ({deb_size:,} bytes)
+- **Package:** `mpmanager-rootless_1.1.3_iphoneos-arm.deb` ({deb_size:,} bytes)
 - **SHA-256:** `{sha256_hash}`
 
 ---
 
 ### Installation
 ```bash
-dpkg -i mpmanager-rootless_1.1.2_iphoneos-arm.deb
+dpkg -i mpmanager-rootless_1.1.3_iphoneos-arm.deb
 uicache -p /var/jb/Applications/MPManager.app
 ```
 Or open and install via **Sileo** or **Zebra**.
 """
 
-tag = "v1.1.2"
+tag = "v1.1.3"
 api_base = "https://api.github.com/repos/nekoruki04/MPManager-iOS/releases"
 
 req = urllib.request.Request(
@@ -108,7 +109,7 @@ with urllib.request.urlopen(patch_req) as resp:
 
 assets = release_data.get('assets', [])
 for a in assets:
-    if a['name'] == 'mpmanager-rootless_1.1.2_iphoneos-arm.deb':
+    if a['name'] == 'mpmanager-rootless_1.1.3_iphoneos-arm.deb':
         del_req = urllib.request.Request(
             f"{api_base}/assets/{a['id']}",
             headers={
@@ -121,7 +122,7 @@ for a in assets:
         urllib.request.urlopen(del_req)
         print("Deleted existing asset")
 
-upload_url = upload_url_tmpl.replace('{?name,label}', '?name=mpmanager-rootless_1.1.2_iphoneos-arm.deb')
+upload_url = upload_url_tmpl.replace('{?name,label}', '?name=mpmanager-rootless_1.1.3_iphoneos-arm.deb')
 with open(deb_path, 'rb') as f:
     deb_bytes = f.read()
 
