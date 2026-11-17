@@ -81,14 +81,14 @@ Direct native port of the open-source [MP Manager](https://github.com/Abdurazaaq
 ## Installation
 
 ### Via Sileo or Zebra
-1. Download `mpmanager-rootless_1.1.0_iphoneos-arm.deb` from the [Releases](https://github.com/nekoruki04/MPManager-iOS/releases) page.
+1. Download `mpmanager-rootless_1.1.1_iphoneos-arm.deb` from the [Releases](https://github.com/nekoruki04/MPManager-iOS/releases) page.
 2. Open with **Sileo** or **Zebra**.
 3. Tap **Get** / **Install** and confirm.
 4. `uicache -p /var/jb/Applications/MPManager.app` will register the application on the SpringBoard home screen.
 
 ### Via Terminal (dpkg)
 ```bash
-dpkg -i mpmanager-rootless_1.1.0_iphoneos-arm.deb
+dpkg -i mpmanager-rootless_1.1.1_iphoneos-arm.deb
 uicache -p /var/jb/Applications/MPManager.app
 ```
 

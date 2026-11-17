@@ -9,14 +9,14 @@ for line in res.decode().splitlines():
     if line.startswith('password='):
         token = line.split('=', 1)[1]
 
-deb_path = 'build/mpmanager-rootless_1.1.0_iphoneos-arm.deb'
+deb_path = 'build/mpmanager-rootless_1.1.1_iphoneos-arm.deb'
 deb_size = os.path.getsize(deb_path)
 with open('build/checksums_mpmanager.txt', 'r') as f:
     checksum = f.read().strip()
 
 sha256_hash = checksum.split()[0]
 
-release_body = f"""# MP Manager for iOS v1.1.0 (Dopamine Rootless)
+release_body = f"""# MP Manager for iOS v1.1.1 (Dopamine Rootless)
 
 A free, native dual-pane file manager, APK/binary reverse engineering suite, and MCP server for iOS designed specifically for jailbroken devices running **Dopamine 2**, **Dopamine 3**, and **RootHide**.
 
@@ -24,41 +24,31 @@ Direct native port of the open-source [MP Manager](https://github.com/Abdurazaaq
 
 ---
 
-### What's New in v1.1.0
-- **Media Suite**:
-  - Built-in Audio & Video player (`AudioVideoPlayerViewController`) with `AVPlayer`, seek slider, play/pause, 10s skip, time labels, and background playback.
-  - Image viewer & editor (`ImageViewerViewController`) with directory swipe navigation, pinch-to-zoom, EXIF metadata inspector, 90° rotate, flip, and private EXIF data stripping (**Strip EXIF**).
-  - Built-in PDF reader (`PdfViewerViewController`) powered by `PDFKit` with continuous scroll, page indicator, in-document text search, and share sheet.
-- **Application & Container Management**:
-  - Installed Apps & Containers viewer (`AppManagerViewController`) categorizing User, System, and Jailbreak applications.
-  - Direct mapping from Bundle IDs to App Sandbox Data Containers (`/var/mobile/Containers/Data/Application/<UUID>`) via `.com.apple.mobile_container_manager.metadata.plist` decoding.
-  - Quick action to jump straight into an app's Bundle folder or Data Sandbox container.
-- **Utilities & Tool Packs**:
-  - **Batch Rename (`BatchRenameViewController`)**: Rename multiple files with template rules (prefix, suffix, `#` index padding) or Find & Replace, with live preview before applying.
-  - **Shell Command Runner (`ShellRunnerViewController`)**: Interactive terminal output viewer with real-time stdout/stderr capture via `posix_spawnp`, exit code badge, and setuid root switch.
-  - **Command Helper (`CommandHelperViewController`)**: Pre-configured developer templates (`chmod 755`, `ldid -S`, `dpkg-deb`, `otool -L`) and customizable template expansions (`$FILE`, `$DIR`, `$NAME`).
-  - **Storage Manager (`StorageManagerViewController`)**: Disk capacity breakdown via `statvfs` (Total, Used, Free) and Top 50 largest files scanner with direct deletion and navigation.
-  - **Wi-Fi & Network Manager (`WifiManagerViewController`)**: Low-level network interface metrics via BSD `getifaddrs` (interface name, IPv4, cellular IP, netmask, broadcast address).
-  - **Backup Restore**: Automatic restoration dialog when tapping `.bak` backup files.
-- **Real-device preview screenshots added to repository documentation.**
+### What's New in v1.1.1
+- **Real App Icon Extraction & Resolution**:
+  - Implemented multi-tier app icon loading in `AppManagerViewController`:
+    1. Extracts candidate icons (`CFBundleIcons`, `CFBundlePrimaryIcon`, `CFBundleIconFiles`) directly from `.app` bundle.
+    2. Deep directory scan for icon png assets.
+    3. Dynamic Objective-C runtime fallback (`_applicationIconImageForBundleIdentifier:format:scale:`) for compiled / system assets.
+  - Squircles rendering with 38x38 uniform sizing and in-memory `NSCache` for 120 FPS scrolling.
 
 ---
 
 ### Package Details & Checksums
-- **Package:** `mpmanager-rootless_1.1.0_iphoneos-arm.deb` ({deb_size:,} bytes)
+- **Package:** `mpmanager-rootless_1.1.1_iphoneos-arm.deb` ({deb_size:,} bytes)
 - **SHA-256:** `{sha256_hash}`
 
 ---
 
 ### Installation
 ```bash
-dpkg -i mpmanager-rootless_1.1.0_iphoneos-arm.deb
+dpkg -i mpmanager-rootless_1.1.1_iphoneos-arm.deb
 uicache -p /var/jb/Applications/MPManager.app
 ```
 Or open and install via **Sileo** or **Zebra**.
 """
 
-tag = "v1.1.0"
+tag = "v1.1.1"
 api_base = "https://api.github.com/repos/nekoruki04/MPManager-iOS/releases"
 
 req = urllib.request.Request(
@@ -118,7 +108,7 @@ with urllib.request.urlopen(patch_req) as resp:
 
 assets = release_data.get('assets', [])
 for a in assets:
-    if a['name'] == 'mpmanager-rootless_1.1.0_iphoneos-arm.deb':
+    if a['name'] == 'mpmanager-rootless_1.1.1_iphoneos-arm.deb':
         del_req = urllib.request.Request(
             f"{api_base}/assets/{a['id']}",
             headers={
@@ -131,7 +121,7 @@ for a in assets:
         urllib.request.urlopen(del_req)
         print("Deleted existing asset")
 
-upload_url = upload_url_tmpl.replace('{?name,label}', '?name=mpmanager-rootless_1.1.0_iphoneos-arm.deb')
+upload_url = upload_url_tmpl.replace('{?name,label}', '?name=mpmanager-rootless_1.1.1_iphoneos-arm.deb')
 with open(deb_path, 'rb') as f:
     deb_bytes = f.read()
 

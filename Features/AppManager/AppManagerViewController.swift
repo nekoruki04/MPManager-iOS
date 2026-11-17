@@ -6,6 +6,7 @@ public struct InstalledAppItem: Sendable {
     public let version: String
     public let bundle_path: String
     public let data_container_path: String?
+    public let icon_path: String?
     public let app_type: AppType
 
     public enum AppType: String, Sendable {
@@ -25,6 +26,7 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
 
     private var all_apps: [InstalledAppItem] = []
     private var filtered_apps: [InstalledAppItem] = []
+    private let icon_cache = NSCache<NSString, UIImage>()
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -170,14 +172,103 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
         let version = (plist["CFBundleShortVersionString"] as? String) ?? (plist["CFBundleVersion"] as? String) ?? "1.0"
         let data_dir = container_map[bundle_id]
 
+        var icon_file_path: String? = nil
+        var candidate_names: [String] = []
+
+        if let icons_dict = plist["CFBundleIcons"] as? [String: Any],
+           let primary = icons_dict["CFBundlePrimaryIcon"] as? [String: Any],
+           let files = primary["CFBundleIconFiles"] as? [String] {
+            candidate_names.append(contentsOf: files)
+        }
+        if let icons_ipad = plist["CFBundleIcons~ipad"] as? [String: Any],
+           let primary = icons_ipad["CFBundlePrimaryIcon"] as? [String: Any],
+           let files = primary["CFBundleIconFiles"] as? [String] {
+            candidate_names.append(contentsOf: files)
+        }
+        if let files = plist["CFBundleIconFiles"] as? [String] {
+            candidate_names.append(contentsOf: files)
+        }
+        if let single = plist["CFBundleIconFile"] as? String {
+            candidate_names.append(single)
+        }
+
+        for c_name in candidate_names.reversed() {
+            let variants = [
+                c_name + "@3x.png",
+                c_name + "@2x.png",
+                c_name + "@2x~ipad.png",
+                c_name + "~ipad.png",
+                c_name + ".png",
+                c_name
+            ]
+            for v in variants {
+                let full = (bundle_path as NSString).appendingPathComponent(v)
+                if FileManager.default.fileExists(atPath: full) {
+                    icon_file_path = full
+                    break
+                }
+            }
+            if icon_file_path != nil { break }
+        }
+
+        if icon_file_path == nil {
+            if let bundle_contents = try? FileManager.default.contentsOfDirectory(atPath: bundle_path) {
+                let candidates = bundle_contents.filter {
+                    let lower = $0.lowercased()
+                    return lower.hasSuffix(".png") && (lower.contains("icon") || lower.contains("appicon"))
+                }.sorted { $0.count > $1.count }
+                if let first_icon = candidates.first {
+                    icon_file_path = (bundle_path as NSString).appendingPathComponent(first_icon)
+                }
+            }
+        }
+
         return InstalledAppItem(
             name: name,
             bundle_id: bundle_id,
             version: version,
             bundle_path: bundle_path,
             data_container_path: data_dir,
+            icon_path: icon_file_path,
             app_type: type
         )
+    }
+
+    private func resolve_app_icon(for app: InstalledAppItem) -> UIImage? {
+        let cache_key = app.bundle_id as NSString
+        if let cached = icon_cache.object(forKey: cache_key) {
+            return cached
+        }
+
+        if let path = app.icon_path, let raw_img = UIImage(contentsOfFile: path) {
+            let scaled = scale_icon(raw_img)
+            icon_cache.setObject(scaled, forKey: cache_key)
+            return scaled
+        }
+
+        let sel = NSSelectorFromString("_applicationIconImageForBundleIdentifier:format:scale:")
+        if let method = class_getClassMethod(UIImage.self, sel) {
+            typealias Func = @convention(c) (AnyClass, Selector, NSString, Int32, CGFloat) -> AnyObject?
+            let imp = method_getImplementation(method)
+            let fn = unsafeBitCast(imp, to: Func.self)
+            if let obj = fn(UIImage.self, sel, app.bundle_id as NSString, 2, 2.0) as? UIImage {
+                let scaled = scale_icon(obj)
+                icon_cache.setObject(scaled, forKey: cache_key)
+                return scaled
+            }
+        }
+
+        return nil
+    }
+
+    private func scale_icon(_ image: UIImage, size: CGSize = CGSize(width: 38, height: 38)) -> UIImage {
+        UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+        let rect = CGRect(origin: .zero, size: size)
+        UIBezierPath(roundedRect: rect, cornerRadius: 8).addClip()
+        image.draw(in: rect)
+        let scaled = UIGraphicsGetImageFromCurrentImageContext() ?? image
+        UIGraphicsEndImageContext()
+        return scaled
     }
 
     private func filter_apps() {
@@ -221,17 +312,25 @@ public final class AppManagerViewController: UIViewController, UITableViewDelega
         cell.textLabel?.text = "\(app.name) (\(app.version))"
         cell.detailTextLabel?.text = "[\(app.app_type.rawValue)] \(app.bundle_id)"
 
-        let icon_img: UIImage?
-        switch app.app_type {
-        case .jailbreak:
-            icon_img = UIImage(systemName: "terminal")
-        case .system:
-            icon_img = UIImage(systemName: "applelogo")
-        case .user:
-            icon_img = UIImage(systemName: "app.gift")
+        if let icon = resolve_app_icon(for: app) {
+            cell.imageView?.image = icon
+            cell.imageView?.layer.cornerRadius = 8
+            cell.imageView?.clipsToBounds = true
+        } else {
+            let icon_img: UIImage?
+            switch app.app_type {
+            case .jailbreak:
+                icon_img = UIImage(systemName: "terminal")
+            case .system:
+                icon_img = UIImage(systemName: "applelogo")
+            case .user:
+                icon_img = UIImage(systemName: "app.gift")
+            }
+            cell.imageView?.image = icon_img
+            cell.imageView?.tintColor = MPTheme.primary_accent
+            cell.imageView?.layer.cornerRadius = 0
+            cell.imageView?.clipsToBounds = false
         }
-        cell.imageView?.image = icon_img
-        cell.imageView?.tintColor = MPTheme.primary_accent
         return cell
     }
 

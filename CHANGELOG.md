@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.1] - 2026-11-17
+
+### Fixed
+- **App Containers & Installed Apps Icon Resolution**:
+  - Implemented multi-tier real app icon resolution in `AppManagerViewController`:
+    1. Extracts `CFBundleIcons` and `CFBundlePrimaryIcon` candidate files (`@3x.png`, `@2x.png`, `~ipad.png`, `.png`) directly from the `.app` bundle.
+    2. Deep bundle directory scanning for icon assets.
+    3. Dynamic Objective-C runtime fallback via `UIImage._applicationIconImageForBundleIdentifier:format:scale:` for compiled and system application icons.
+  - Added in-memory `NSCache` for fluid table scrolling.
+  - Standardized all application icons to crisp 38x38 squircle rendering (`cornerRadius: 8`).
+
 ## [1.1.0] - 2026-11-17
 
 ### Added
