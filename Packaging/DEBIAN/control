@@ -1,6 +1,6 @@
 Package: io.github.abdurazaaqmohammed.mpmanager
 Name: MP Manager for iOS
-Version: 1.1.1
+Version: 1.1.2
 Architecture: iphoneos-arm
 Description: Open-source dual-pane file manager & APK/binary analysis tool for Dopamine Rootless
 Maintainer: nekoruki <nekoruki04@users.noreply.github.com>

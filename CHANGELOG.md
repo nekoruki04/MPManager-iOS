@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.2] - 2026-11-17
+
+### Fixed
+- **Native ZIP Archiving & Extraction Engine (`NativeZipEngine`)**:
+  - Replaced CLI-dependent zip/unzip subprocess invocation with a self-contained, native streaming PKZIP engine using Darwin kernel `zlib`.
+  - Fixes zip archive creation errors when `zip` binary is not installed in `/var/jb/usr/bin`.
+  - Fixed fallback to `tar` which caused format mismatch and corruption on `.zip` destinations.
+  - Streaming file writing via `FileHandle` with RFC 1951 Deflate compression, correct DOS date/time encoding, and Central Directory generation.
+  - Native ZIP listing and extraction with Deflate inflation and path traversal protection.
+
 ## [1.1.1] - 2026-11-17
 
 ### Fixed

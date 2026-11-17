@@ -48,6 +48,19 @@ public final class ArchiveManager: Sendable {
 
     public static func list_entries(at archive_path: String) throws -> [ArchiveEntry] {
         let lower = archive_path.lowercased()
+        if lower.hasSuffix(".zip") || lower.hasSuffix(".apk") {
+            if let native_entries = NativeZipEngine.list_zip_entries(archive_path: archive_path) {
+                return native_entries.map {
+                    ArchiveEntry(
+                        path: $0.name,
+                        is_directory: $0.is_directory,
+                        size: $0.uncompressed_size,
+                        formatted_size: $0.is_directory ? "<DIR>" : ByteCountFormatter.string(fromByteCount: $0.uncompressed_size, countStyle: .file)
+                    )
+                }
+            }
+        }
+
         guard let tar_bin = resolve_binary("tar") else {
             throw NSError(domain: "ArchiveManager", code: 404, userInfo: [NSLocalizedDescriptionKey: "tar binary not found"])
         }
@@ -123,9 +136,14 @@ public final class ArchiveManager: Sendable {
         flags += "f"
 
         if lower.hasSuffix(".zip") || lower.hasSuffix(".apk") {
-            if let unzip_bin = resolve_binary("unzip") {
-                let res = try? run_command(executable: unzip_bin, arguments: ["-q", "-o", source_path, "-d", dest_url.path])
-                if let res = res, res.status == 0 { return }
+            do {
+                try NativeZipEngine.extract_zip(archive_path: source_path, destination_directory: dest_url.path)
+                return
+            } catch {
+                if let unzip_bin = resolve_binary("unzip") {
+                    let res = try? run_command(executable: unzip_bin, arguments: ["-q", "-o", source_path, "-d", dest_url.path])
+                    if let res = res, res.status == 0 { return }
+                }
             }
         }
 
@@ -150,23 +168,8 @@ public final class ArchiveManager: Sendable {
 
         switch format {
         case .zip:
-            if let zip_bin = resolve_binary("zip") {
-                var args = ["-r", "-q", dest_url.path]
-                for src in sources {
-                    args.append((src as NSString).lastPathComponent)
-                }
-                let first_src_parent = (sources[0] as NSString).deletingLastPathComponent
-                let original_cwd = FileManager.default.currentDirectoryPath
-                FileManager.default.changeCurrentDirectoryPath(first_src_parent)
-                defer { FileManager.default.changeCurrentDirectoryPath(original_cwd) }
-
-                let res = try run_command(executable: zip_bin, arguments: args)
-                if res.status != 0 {
-                    throw NSError(domain: "ArchiveManager", code: Int(res.status), userInfo: [NSLocalizedDescriptionKey: "zip creation failed"])
-                }
-                return
-            }
-            fallthrough
+            try NativeZipEngine.create_zip(sources: sources, destination_path: destination_path)
+            return
 
         case .tarGz:
             guard let tar_bin = resolve_binary("tar") else {
