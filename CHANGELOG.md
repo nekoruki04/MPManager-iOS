@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.1.0] - 2026-11-17
+
+### Added
+- **Media Suite**:
+  - Built-in Audio & Video player (`AudioVideoPlayerViewController`) with `AVPlayer`, seek slider, play/pause, 10-second skip forward/backward, time labels, and background audio support.
+  - Image viewer & editor (`ImageViewerViewController`) with directory swipe navigation, pinch-to-zoom, EXIF metadata inspector, 90-degree rotate, flip, and private EXIF data stripping (**Strip EXIF**).
+  - Built-in PDF reader (`PdfViewerViewController`) powered by `PDFKit` with continuous scroll, page indicator, in-document text search, and share sheet.
+- **Application & Container Management**:
+  - Installed Apps & Containers viewer (`AppManagerViewController`) categorizing User, System, and Jailbreak applications.
+  - Direct mapping from Bundle IDs to App Sandbox Data Containers (`/var/mobile/Containers/Data/Application/<UUID>`) via `.com.apple.mobile_container_manager.metadata.plist` decoding.
+  - Quick action to jump straight into an app's Bundle folder or Data Sandbox container.
+- **Utilities & Tool Packs**:
+  - **Batch Rename (`BatchRenameViewController`)**: Rename multiple files with template rules (prefix, suffix, `#` index padding) or Find & Replace, with live preview before applying.
+  - **Shell Command Runner (`ShellRunnerViewController`)**: Interactive terminal output viewer with real-time stdout/stderr capture via `posix_spawnp`, exit code badge, and setuid root switch.
+  - **Command Helper (`CommandHelperViewController`)**: Pre-configured developer templates (`chmod 755`, `ldid -S`, `dpkg-deb`, `otool -L`) and customizable template expansions (`$FILE`, `$DIR`, `$NAME`).
+  - **Storage Manager (`StorageManagerViewController`)**: Disk capacity breakdown via `statvfs` (Total, Used, Free) and Top 50 largest files scanner with direct deletion and navigation.
+  - **Wi-Fi & Network Manager (`WifiManagerViewController`)**: Low-level network interface metrics via BSD `getifaddrs` (interface name, IPv4, cellular IP, netmask, broadcast address).
+  - **Backup Restore**: Automatic restoration dialog when tapping `.bak` backup files.
+- **Documentation & Evidence**:
+  - Added real-device preview screenshots to repository documentation.
+
 ## [1.0.0] - 2026-11-17
 
 ### Initial iOS Jailbreak Port Release

@@ -77,7 +77,7 @@ def main():
     build_dir = os.path.abspath(os.path.join(repo_root, "..", "build"))
     os.makedirs(build_dir, exist_ok=True)
     
-    primary_deb = os.path.abspath(args.output or os.path.join(build_dir, "mpmanager-rootless_1.0.0_iphoneos-arm.deb"))
+    primary_deb = os.path.abspath(args.output or os.path.join(build_dir, "mpmanager-rootless_1.1.0_iphoneos-arm.deb"))
     
     with tempfile.TemporaryDirectory() as tmpdir:
         staging_dir = os.path.join(tmpdir, "staging")
