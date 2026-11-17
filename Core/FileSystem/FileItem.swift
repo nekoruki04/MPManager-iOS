@@ -20,13 +20,17 @@ public struct FileItem: Identifiable, Hashable, Sendable {
     public let is_readable: Bool
     public let is_writable: Bool
 
-    public var formatted_size: String {
-        if is_directory { return "" }
+    public static func format_bytes(_ size: Int64) -> String {
         let b = Double(size)
         if b < 1024 { return "\(size) B" }
         if b < 1024 * 1024 { return String(format: "%.1f KB", b / 1024.0) }
         if b < 1024 * 1024 * 1024 { return String(format: "%.1f MB", b / (1024.0 * 1024.0)) }
         return String(format: "%.2f GB", b / (1024.0 * 1024.0 * 1024.0))
+    }
+
+    public var formatted_size: String {
+        if is_directory { return "" }
+        return FileItem.format_bytes(size)
     }
 
     public var octal_permissions: String {

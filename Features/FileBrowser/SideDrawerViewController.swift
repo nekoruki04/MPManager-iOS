@@ -4,6 +4,7 @@ public final class SideDrawerViewController: UIViewController {
     public var on_select_location: ((String) -> Void)?
     public var on_open_mcp: (() -> Void)?
     public var on_open_network: (() -> Void)?
+    public var on_open_ftp_server: (() -> Void)?
     public var on_open_settings: (() -> Void)?
 
     private let scroll_view = UIScrollView()
@@ -152,7 +153,8 @@ public final class SideDrawerViewController: UIViewController {
 
         let tools = [
             ("MCP Service (AI Tools)", "cpu.fill", #selector(open_mcp_tapped)),
-            ("Network Storage (FTP/SFTP/WebDAV)", "network", #selector(open_network_tapped)),
+            ("Network Storage (WebDAV/SFTP/FTP/SMB)", "network", #selector(open_network_tapped)),
+            ("FTP Server (Wireless Transfer)", "antenna.radiowaves.left.and.right", #selector(open_ftp_server_tapped)),
             ("Settings & Preferences", "gearshape.fill", #selector(open_settings_tapped))
         ]
 
@@ -187,6 +189,12 @@ public final class SideDrawerViewController: UIViewController {
     @objc private func open_network_tapped() {
         dismiss(animated: true) { [weak self] in
             self?.on_open_network?()
+        }
+    }
+
+    @objc private func open_ftp_server_tapped() {
+        dismiss(animated: true) { [weak self] in
+            self?.on_open_ftp_server?()
         }
     }
 

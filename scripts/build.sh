@@ -12,45 +12,12 @@ echo "[*] App bundle: $APP_DIR"
 
 mkdir -p "$APP_DIR"
 
-SWIFT_SOURCES=(
-    "$PROJECT_ROOT/App/AppDelegate.swift"
-    "$PROJECT_ROOT/App/SceneDelegate.swift"
-    "$PROJECT_ROOT/Core/Theme/MPTheme.swift"
-    "$PROJECT_ROOT/Core/FileSystem/FileItem.swift"
-    "$PROJECT_ROOT/Core/FileSystem/RootlessPaths.swift"
-    "$PROJECT_ROOT/Core/FileSystem/FileSystemProvider.swift"
-    "$PROJECT_ROOT/Core/Privilege/PrivilegeManager.swift"
-    "$PROJECT_ROOT/Core/FileOperations/FileOperation.swift"
-    "$PROJECT_ROOT/Core/FileOperations/ConflictResolver.swift"
-    "$PROJECT_ROOT/Core/FileOperations/FileOperationsQueue.swift"
-    "$PROJECT_ROOT/Core/Security/CryptEngine.swift"
-    "$PROJECT_ROOT/Core/Storage/BookmarkStore.swift"
-    "$PROJECT_ROOT/Core/Network/KeychainHelper.swift"
-    "$PROJECT_ROOT/Core/Network/NetworkStorageItem.swift"
-    "$PROJECT_ROOT/Core/Network/NetworkStorageClient.swift"
-    "$PROJECT_ROOT/Jailbreak/JailbreakEnvironment.swift"
-    "$PROJECT_ROOT/Features/Archive/ArchiveManager.swift"
-    "$PROJECT_ROOT/Features/Search/FileSearchEngine.swift"
-    "$PROJECT_ROOT/Features/ApkTools/ApkInspector.swift"
-    "$PROJECT_ROOT/Features/ApkTools/ApkInfoViewController.swift"
-    "$PROJECT_ROOT/Features/BinaryTools/MachOInspector.swift"
-    "$PROJECT_ROOT/Features/Editors/TextEditorViewController.swift"
-    "$PROJECT_ROOT/Features/Editors/HexEditorViewController.swift"
-    "$PROJECT_ROOT/Features/SQLite/SQLiteBrowserViewController.swift"
-    "$PROJECT_ROOT/Features/Diff/FileDiffViewController.swift"
-    "$PROJECT_ROOT/Features/MCP/McpServer.swift"
-    "$PROJECT_ROOT/Features/MCP/McpServerViewController.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/PaneHighlightView.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/FileCell.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/FilePropertiesViewController.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/BookmarksDrawerViewController.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/SideDrawerViewController.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/SearchDialogViewController.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/MainFilesViewController.swift"
-    "$PROJECT_ROOT/Features/FileBrowser/DualPaneViewController.swift"
-    "$PROJECT_ROOT/Features/Network/NetworkStorageViewController.swift"
-    "$PROJECT_ROOT/Features/Settings/SettingsViewController.swift"
-)
+SWIFT_SOURCES=()
+while IFS= read -r file; do
+    SWIFT_SOURCES+=("$file")
+done < <(find "$PROJECT_ROOT" -name "*.swift" -not -path "*/build/*" -not -path "*/Tests/*" | sort)
+
+echo "[*] Found ${#SWIFT_SOURCES[@]} Swift source files."
 
 SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
 echo "[*] Using iPhoneOS SDK: $SDK_PATH"

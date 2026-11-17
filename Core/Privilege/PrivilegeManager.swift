@@ -4,6 +4,8 @@ import Darwin
 public final class PrivilegeManager: Sendable {
     public static let shared = PrivilegeManager()
 
+    public init() {}
+
     public static var helper_path: String? {
         let candidates = [
             Bundle.main.bundlePath + "/mpRootHelper",
@@ -51,6 +53,48 @@ public final class PrivilegeManager: Sendable {
                 userInfo: [NSLocalizedDescriptionKey: "Root helper action '\(action)' failed with exit code \(exit_code)"]
             )
         }
+    }
+
+    public func execute_root_command(_ command: String) throws -> String {
+        var pipe_fds: [Int32] = [0, 0]
+        pipe(&pipe_fds)
+
+        var file_actions: posix_spawn_file_actions_t?
+        posix_spawn_file_actions_init(&file_actions)
+        defer { posix_spawn_file_actions_destroy(&file_actions) }
+
+        posix_spawn_file_actions_adddup2(&file_actions, pipe_fds[1], STDOUT_FILENO)
+        posix_spawn_file_actions_adddup2(&file_actions, pipe_fds[1], STDERR_FILENO)
+        posix_spawn_file_actions_addclose(&file_actions, pipe_fds[0])
+
+        let sh_args = ["/bin/sh", "-c", command]
+        var c_args = sh_args.map { strdup($0) }
+        c_args.append(nil)
+        defer {
+            for ptr in c_args where ptr != nil { free(ptr) }
+        }
+
+        var pid: pid_t = 0
+        let spawn_err = posix_spawnp(&pid, "/bin/sh", &file_actions, nil, &c_args, environ)
+        close(pipe_fds[1])
+
+        if spawn_err != 0 {
+            close(pipe_fds[0])
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(spawn_err), userInfo: [NSLocalizedDescriptionKey: "Failed to spawn shell: \(spawn_err)"])
+        }
+
+        var output = ""
+        var buf = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let n = read(pipe_fds[0], &buf, buf.count)
+            if n <= 0 { break }
+            output += String(decoding: buf[0..<n], as: UTF8.self)
+        }
+        close(pipe_fds[0])
+
+        var status: Int32 = 0
+        waitpid(pid, &status, 0)
+        return output
     }
 
     public static func delete_item(at path: String) throws {

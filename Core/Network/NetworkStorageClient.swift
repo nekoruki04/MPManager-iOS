@@ -15,8 +15,14 @@ public final class NetworkStorageClient: Sendable {
     public init() {}
 
     public func list_directory(item: NetworkStorageItem, path: String, password: String?) async throws -> [RemoteFileInfo] {
-        if item.proto == .smb {
-            throw NSError(domain: "NetworkStorageClient", code: 501, userInfo: [NSLocalizedDescriptionKey: "SMB2/3 requires external libsmb2 client library."])
+        if item.proto == .webdav {
+            let scheme = item.port == 443 ? "https" : "http"
+            let base_str = "\(scheme)://\(item.host):\(item.port)"
+            guard let base_url = URL(string: base_str) else {
+                throw NSError(domain: "NetworkStorageClient", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid WebDAV base URL"])
+            }
+            let auth: (String, String)? = item.username.isEmpty ? nil : (item.username, password ?? "")
+            return try await WebDavClient.shared.list_directory(base_url: base_url, path: path, auth: auth)
         }
 
         var url_str = "\(item.proto.rawValue.lowercased())://\(item.host):\(item.port)"
@@ -42,7 +48,7 @@ public final class NetworkStorageClient: Sendable {
         let curl_bin = resolve_curl()
         let result = try run_command(executable: curl_bin, arguments: args)
         if result.status != 0 {
-            throw NSError(domain: "NetworkStorageClient", code: Int(result.status), userInfo: [NSLocalizedDescriptionKey: "Remote connection failed with exit status \(result.status)"])
+            throw NSError(domain: "NetworkStorageClient", code: Int(result.status), userInfo: [NSLocalizedDescriptionKey: "Remote connection failed with exit status \(result.status): \(result.output)"])
         }
 
         var list: [RemoteFileInfo] = []
@@ -67,8 +73,15 @@ public final class NetworkStorageClient: Sendable {
     }
 
     public func download_file(item: NetworkStorageItem, remote_path: String, local_destination: String, password: String?) async throws {
-        if item.proto == .smb {
-            throw NSError(domain: "NetworkStorageClient", code: 501, userInfo: [NSLocalizedDescriptionKey: "SMB2/3 not supported"])
+        if item.proto == .webdav {
+            let scheme = item.port == 443 ? "https" : "http"
+            let file_url_str = "\(scheme)://\(item.host):\(item.port)" + (remote_path.hasPrefix("/") ? remote_path : ("/" + remote_path))
+            guard let file_url = URL(string: file_url_str) else {
+                throw NSError(domain: "NetworkStorageClient", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+            }
+            let auth: (String, String)? = item.username.isEmpty ? nil : (item.username, password ?? "")
+            try await WebDavClient.shared.download_file(url: file_url, destination: local_destination, auth: auth)
+            return
         }
 
         var url_str = "\(item.proto.rawValue.lowercased())://\(item.host):\(item.port)"
@@ -92,8 +105,15 @@ public final class NetworkStorageClient: Sendable {
     }
 
     public func upload_file(item: NetworkStorageItem, local_source: String, remote_path: String, password: String?) async throws {
-        if item.proto == .smb {
-            throw NSError(domain: "NetworkStorageClient", code: 501, userInfo: [NSLocalizedDescriptionKey: "SMB2/3 not supported"])
+        if item.proto == .webdav {
+            let scheme = item.port == 443 ? "https" : "http"
+            let file_url_str = "\(scheme)://\(item.host):\(item.port)" + (remote_path.hasPrefix("/") ? remote_path : ("/" + remote_path))
+            guard let file_url = URL(string: file_url_str) else {
+                throw NSError(domain: "NetworkStorageClient", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+            }
+            let auth: (String, String)? = item.username.isEmpty ? nil : (item.username, password ?? "")
+            try await WebDavClient.shared.upload_file(url: file_url, source_path: local_source, auth: auth)
+            return
         }
 
         var url_str = "\(item.proto.rawValue.lowercased())://\(item.host):\(item.port)"
@@ -114,6 +134,59 @@ public final class NetworkStorageClient: Sendable {
         if result.status != 0 {
             throw NSError(domain: "NetworkStorageClient", code: Int(result.status), userInfo: [NSLocalizedDescriptionKey: "Upload failed with exit status \(result.status)"])
         }
+    }
+
+    public func create_directory(item: NetworkStorageItem, path: String, password: String?) async throws {
+        if item.proto == .webdav {
+            let scheme = item.port == 443 ? "https" : "http"
+            let dir_url_str = "\(scheme)://\(item.host):\(item.port)" + (path.hasPrefix("/") ? path : ("/" + path))
+            guard let dir_url = URL(string: dir_url_str) else {
+                throw NSError(domain: "NetworkStorageClient", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+            }
+            let auth: (String, String)? = item.username.isEmpty ? nil : (item.username, password ?? "")
+            try await WebDavClient.shared.create_directory(url: dir_url, auth: auth)
+            return
+        }
+
+        var url_str = "\(item.proto.rawValue.lowercased())://\(item.host):\(item.port)"
+        url_str += path.hasPrefix("/") ? path : ("/" + path)
+        if !url_str.hasSuffix("/") { url_str += "/" }
+
+        var args = ["-s", "-Q", "MKD " + path]
+        if !item.username.isEmpty {
+            let cred = item.username + ":" + (password ?? "")
+            args += ["-u", cred]
+        }
+        args.append(url_str)
+
+        let curl_bin = resolve_curl()
+        _ = try run_command(executable: curl_bin, arguments: args)
+    }
+
+    public func delete_file(item: NetworkStorageItem, path: String, password: String?) async throws {
+        if item.proto == .webdav {
+            let scheme = item.port == 443 ? "https" : "http"
+            let target_url_str = "\(scheme)://\(item.host):\(item.port)" + (path.hasPrefix("/") ? path : ("/" + path))
+            guard let target_url = URL(string: target_url_str) else {
+                throw NSError(domain: "NetworkStorageClient", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+            }
+            let auth: (String, String)? = item.username.isEmpty ? nil : (item.username, password ?? "")
+            try await WebDavClient.shared.delete_item(url: target_url, auth: auth)
+            return
+        }
+
+        var url_str = "\(item.proto.rawValue.lowercased())://\(item.host):\(item.port)"
+        url_str += path.hasPrefix("/") ? path : ("/" + path)
+
+        var args = ["-s", "-Q", "DELE " + path]
+        if !item.username.isEmpty {
+            let cred = item.username + ":" + (password ?? "")
+            args += ["-u", cred]
+        }
+        args.append(url_str)
+
+        let curl_bin = resolve_curl()
+        _ = try run_command(executable: curl_bin, arguments: args)
     }
 
     private func resolve_curl() -> String {

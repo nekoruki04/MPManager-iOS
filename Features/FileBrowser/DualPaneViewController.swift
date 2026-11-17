@@ -253,6 +253,10 @@ public final class DualPaneViewController: UIViewController {
             let net_vc = NetworkStorageViewController()
             self?.present(UINavigationController(rootViewController: net_vc), animated: true)
         }
+        side_vc.on_open_ftp_server = { [weak self] in
+            let ftp_vc = FtpServerViewController()
+            self?.present(UINavigationController(rootViewController: ftp_vc), animated: true)
+        }
         side_vc.on_open_settings = { [weak self] in
             let set_vc = SettingsViewController()
             self?.present(UINavigationController(rootViewController: set_vc), animated: true)

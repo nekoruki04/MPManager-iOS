@@ -11,6 +11,17 @@ Direct native port of the open-source [MP Manager](https://github.com/Abdurazaaq
 - **Authentic Dual-Pane Navigation**: Browse two directories side by side in independent viewports, highlighted with an active pane accent border (`#2196F3` / `#4CAF50`). Easily copy or move files across panes with one tap.
 - **Rootless & Sandboxed Filesystem Access**: Direct access to `/var/jb`, `/var/mobile`, `/Library`, `/Applications`, and system volumes using POSIX system calls (`opendir`, `readdir`, `lstat`).
 - **Privilege Elevation (`mpRootHelper`)**: Bundled setuid root helper (`chmod 4755`, owned by `0:0`) enabling uninhibited recursive deletions, permissions modifications (`chmod`/`chown`), and archive extraction in protected system folders.
+- **Model Context Protocol (MCP) Service**:
+  - Full JSON-RPC 2.0 protocol layer compliant with MCP specification `2024-11-05`.
+  - 23 on-device tools (`mp_file_*`, `mp_zip_*`, `mp_apk_*`, `mp_macho_*`, `mp_exec_command`, `mp_network_list`, `mp_ftp_server_status`).
+  - Dual transports: Streamable HTTP at `http://<ip>:8787/mcp` and Legacy SSE at `/sse` & `/message`.
+  - CORS-enabled with live audit logging and one-click JSON export for Claude Desktop, Cursor, and AI agents.
+  - Background task persistence preventing suspension when the device is locked or minimized.
+- **Network Storage & Wireless File Transfer**:
+  - **Built-in FTP Server**: Turn your iOS device into an RFC 959 FTP server on port `2121` with one tap. Supports anonymous or password authentication, passive mode (PASV/EPSV), file upload/download, and background transfer keepalive.
+  - **Native WebDAV Client**: Pure Swift implementation via `URLSession` and `XMLParser` with `PROPFIND` (Depth 1), `GET`, `PUT`, `MKCOL`, `DELETE`, and `MOVE`.
+  - **Remote Files Browser**: Browse remote servers directly inside MP Manager with folder navigation, cross-pane transfers, remote folder creation, and direct remote file editing.
+  - **Keychain Security**: Remote credentials (FTP, FTPS, SFTP, WebDAV, SMB) encrypted in the hardware-backed iOS Keychain.
 - **Archive Engine**: Browse archive contents without extraction, extract selected entries, or create archives (`.zip`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.7z`, `.rar`) with Zip Slip path traversal defense.
 - **APK & Binary Tools**:
   - Decode binary `AndroidManifest.xml` (extract package, version, SDK constraints).
@@ -23,8 +34,6 @@ Direct native port of the open-source [MP Manager](https://github.com/Abdurazaaq
   - **SQLite Browser**: View table schemas, inspect rows, and run custom queries.
   - **File Comparison (Diff)**: Side-by-side / unified text diff viewer.
   - **Checksum Calculator**: Real-time SHA-256, SHA-1, and MD5 computation.
-- **Model Context Protocol (MCP) Server**: Embedded local HTTP/SSE daemon at `http://127.0.0.1:8787/mcp` exposing `mp_file_*`, `mp_zip_*`, and `mp_apk_*` tools for local or networked AI agents.
-- **Network Storage**: Connect to `FTP`, `FTPS`, `SFTP`, and `WebDAV` servers with credentials secured in the hardware-backed iOS Keychain.
 
 ---
 

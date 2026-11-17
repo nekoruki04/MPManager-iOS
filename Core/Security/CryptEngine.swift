@@ -7,6 +7,11 @@ public final class CryptEngine: Sendable {
 
     public init() {}
 
+    public func sha256_hex(data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
     public func derive_key(password: String, salt: Data) throws -> SymmetricKey {
         let password_data = password.data(using: .utf8) ?? Data()
         var derived_key_data = Data(repeating: 0, count: 32)
